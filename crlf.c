@@ -4,32 +4,24 @@
 #include <assert.h>
 #include "crlf.h"
 
-static void gen_dectab_RL53(uint32_t dectab[256])
+static inline uint64_t crlf_cal_counts(int n_symbols, uint8_t len)
 {
-	uint32_t x;
-	for (x = 0; x < 256; ++x)
-		dectab[x] = x>>3<<8 | (x&7);
+	int i;
+	uint64_t n_cnt;
+	if (len == 255) return 0;
+	for (i = 0, n_cnt = 1; i <= len; ++i)
+		n_cnt *= n_symbols;
+	n_cnt = (n_cnt - 1) / (n_symbols - 1);
+	return n_cnt;
 }
 
-static void gen_dectab_RL35(uint32_t dectab[256])
-{
-	uint32_t x;
-	for (x = 0; x < 256; ++x)
-		dectab[x] = (x&31)<<8 | (x>>5);
-}
-
-crlf_t *crlf_create(const char *fn, uint8_t n_symbols, uint16_t enc, uint8_t len, const uint64_t *cnt, int overwrite)
+crlf_t *crlf_create(const char *fn, int n_symbols, uint8_t len, const uint64_t *cnt, const uint32_t dectab[256], crlf_write_f encode, int overwrite)
 {
 	crlf_t *crlf;
 	FILE *fp;
 	int to_stdout;
 	int64_t n_cnt;
-	uint32_t dectab[256];
 
-	if (enc == CRLF_ENC_RL53) gen_dectab_RL53(dectab); // TODO: check if n_symbols is too large
-	else if (enc == CRLF_ENC_RL35) gen_dectab_RL35(dectab);
-	else return 0;
-	
 	to_stdout = (fn == 0 || strcmp(fn, "-") == 0);
 	if (!overwrite && !to_stdout) {
 		fp = fopen(fn, "r");
@@ -41,20 +33,20 @@ crlf_t *crlf_create(const char *fn, uint8_t n_symbols, uint16_t enc, uint8_t len
 	fp = to_stdout? stdout : fopen(fn, "wb");
 	if (fp == 0) return 0;
 
-	n_cnt = crlf_cal_counts(n_symbols, len);
-
+	if (cnt == 0) len = 255;
 	crlf = (crlf_t*)calloc(1, sizeof(crlf_t));
+	crlf->n_symbols = n_symbols;
+	crlf->encode = encode;
 	crlf->is_writing = 1;
 	crlf->len = len;
-	crlf->enc = enc;
 	crlf->fp = fp;
+	n_cnt = crlf_cal_counts(n_symbols, len);
 	crlf->cnt = (uint64_t*)calloc(n_cnt, 8);
 	memcpy(crlf->cnt, cnt, n_cnt * 8);
 	memcpy(crlf->dectab, dectab, 256 * 4);
 
 	fwrite("CRL\1", 1, 4, fp);
 	fwrite(&n_symbols, 1, 1, fp);
-	fwrite(&enc, 2, 1, fp);
 	fwrite(&len, 1, 1, fp);
 	fwrite(crlf->cnt, 8, n_cnt, fp);
 	fwrite(crlf->dectab, 4, 256, fp);
@@ -80,7 +72,6 @@ crlf_t *crlf_open(const char *fn)
 	crlf = (crlf_t*)calloc(1, sizeof(crlf_t));
 	crlf->fp = fp;
 	fread(&crlf->n_symbols, 1, 1, fp);
-	fread(&crlf->enc, 2, 1, fp);
 	fread(&crlf->len, 1, 1, fp);
 	n_cnt = crlf_cal_counts(crlf->n_symbols, crlf->len);
 	crlf->cnt = (uint64_t*)calloc(n_cnt, 8);
@@ -100,5 +91,27 @@ int crlf_close(crlf_t *crlf)
 	fclose(crlf->fp);
 	free(crlf->cnt);
 	free(crlf);
+	return 0;
+}
+
+/**************
+ *** Codecs ***
+ **************/
+
+int crlf_dectab_RL53(uint32_t dectab[256])
+{
+	uint32_t x;
+	for (x = 0; x < 256; ++x)
+		dectab[x] = x>>3<<8 | (x&7);
+	return 8;
+}
+
+int crlf_write_RL53(crlf_t *crlf, int c, uint64_t l)
+{
+	while (l > 31) {
+		crlf_write_byte(crlf, 31<<3 | c);
+		l -= 31;
+	}
+	crlf_write_byte(crlf, l<<3 | c);
 	return 0;
 }

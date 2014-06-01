@@ -4,19 +4,17 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define CRLF_ENC_NULL  0
-#define CRLF_ENC_RL53  1
-#define CRLF_ENC_RL35  2
-#define CRLF_ENC_ASCII 100
+#define CRLF_BUF_LEN 0x10000
 
-#define CRLF_BUF_LEN  0x10000
+struct crlf_s;
+typedef int (*crlf_write_f)(struct crlf_s*, int c, uint64_t);
 
-typedef struct {
+typedef struct crlf_s {
 	uint8_t len, is_writing, n_symbols;
-	uint16_t enc;
 	uint64_t *cnt;
 	FILE *fp;
 	uint32_t dectab[256];
+	crlf_write_f encode;
 
 	int c, i, buf_len;
 	uint64_t l;
@@ -27,23 +25,16 @@ typedef struct {
 extern "C" {
 #endif
 
-	crlf_t *crlf_create(const char *fn, uint8_t n_symbols, uint16_t enc, uint8_t len, const uint64_t *cnt, int overwrite);
+	crlf_t *crlf_create(const char *fn, int n_symbols, uint8_t len, const uint64_t *cnt, const uint32_t dectab[256], crlf_write_f encode, int overwrite);
 	crlf_t *crlf_open(const char *fn);
 	int crlf_close(crlf_t *crlf);
+
+	int crlf_dectab_RL53(uint32_t dectab[256]);
+	int crlf_write_RL53(crlf_t *crlf, int c, uint64_t l);
 
 #ifdef __cplusplus
 }
 #endif
-
-static inline uint64_t crlf_cal_counts(int n_symbols, int len)
-{
-	int i;
-	uint64_t n_cnt;
-	for (i = 0, n_cnt = 1; i <= len; ++i)
-		n_cnt *= n_symbols;
-	n_cnt = (n_cnt - 1) / (n_symbols - 1);
-	return n_cnt;
-}
 
 static inline void crlf_write_byte(crlf_t *crlf, uint8_t byte)
 {
@@ -54,26 +45,17 @@ static inline void crlf_write_byte(crlf_t *crlf, uint8_t byte)
 	crlf->buf[crlf->i++] = byte;
 }
 
-static inline int crlf_write_RL53(crlf_t *crlf, int c, uint64_t l)
+static inline int crlf_write(crlf_t *crlf, int c, uint64_t l)
 {
-	if (l == 0 || c >= crlf->n_symbols) return -1;
+	int ret = 0;
+	if (c >= crlf->n_symbols || l == 0) return -1;
 	if (crlf->l > 0) { // a staging run
 		if (c != crlf->c) { // a new run
-			while (crlf->l > 31) {
-				crlf_write_byte(crlf, 31<<3 | crlf->c);
-				crlf->l -= 31;
-			}
-			crlf_write_byte(crlf, crlf->l<<3 | crlf->c);
+			ret = crlf->encode(crlf, crlf->c, crlf->l);
 			crlf->c = c, crlf->l = l;
 		} else crlf->l += l; // extend the staging run
 	} else crlf->c = c, crlf->l = l;
-	return 0;
-}
-
-static inline int crlf_write(crlf_t *crlf, int c, uint64_t l)
-{
-	if (crlf->enc == CRLF_ENC_RL53) return crlf_write_RL53(crlf, c, l);
-	else return -1;
+	return ret;
 }
 
 static inline int crlf_read_byte(crlf_t *crlf, uint32_t *l)
