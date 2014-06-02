@@ -1,5 +1,5 @@
 CC=			gcc
-CFLAGS=		-g -Wall -O2 #-fno-inline-functions -fno-inline-functions-called-once
+CFLAGS=		-g -Wall -O2
 DFLAGS=
 PROG=		crlf
 INCLUDES=	
@@ -12,8 +12,11 @@ LIBS=		-lz -lpthread
 
 all:$(PROG)
 
-crlf:crlf.o dna.o main.o
+crlf:crlf.o recode.o
 		$(CC) $(CFLAGS) $(DFLAGS) $^ -o $@ $(LIBS)
+
+crlf.o:crlf.h
+recode.o:crlf.h
 
 clean:
 		rm -fr gmon.out *.o ext/*.o a.out $(PROG) *~ *.a *.dSYM session*

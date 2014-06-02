@@ -10,12 +10,15 @@ struct crlf_s;
 typedef int (*crlf_write_f)(struct crlf_s*, int c, uint64_t);
 
 typedef struct crlf_s {
-	uint8_t len, is_writing, n_symbols;
-	uint64_t *cnt;
-	FILE *fp;
-	uint32_t dectab[256];
-	crlf_write_f encode;
+	uint8_t is_writing; // if the file is open for writing
+	uint8_t len; // maximum length of subtrings for the count table
+	uint8_t n_symbols; // number of symbols, including the sentinel
+	uint64_t *cnt; // the count table
+	uint32_t dectab[256]; // decoding table
+	crlf_write_f encode; // encoding function
+	FILE *fp; // file pointer
 
+	// Private members. DON'T touch!
 	int c, i, buf_len;
 	uint64_t l;
 	uint8_t buf[CRLF_BUF_LEN];
@@ -66,16 +69,21 @@ static inline int crlf_read_byte(crlf_t *crlf, uint32_t *l)
 		crlf->buf_len = fread(crlf->buf, 1, CRLF_BUF_LEN, crlf->fp);
 		if (crlf->buf_len == 0) return -1;
 	}
-	x = crlf->dectab[crlf->i++];
+	x = crlf->dectab[crlf->buf[crlf->i++]];
 	*l = x>>8;
 	return x&7;
 }
 
-static inline int crlf_read(crlf_t *crlf, int64_t *l)
+static inline int crlf_read(crlf_t *crlf, uint64_t *l)
 {
 	int c, ret_c;
 	uint32_t l1;
-	if (crlf->buf_len == 0) return -1;
+	if (crlf->buf_len == 0) {
+		if (crlf->l > 0) {
+			*l = crlf->l;
+			return crlf->c;
+		} else return -1;
+	}
 	while ((c = crlf_read_byte(crlf, &l1)) == crlf->c)
 		crlf->l += l1;
 	*l = crlf->l, ret_c = crlf->c;

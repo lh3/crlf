@@ -86,8 +86,10 @@ crlf_t *crlf_open(const char *fn)
 int crlf_close(crlf_t *crlf)
 {
 	if (crlf == 0) return -1;
-	if (crlf->is_writing && crlf->i > 0)
+	if (crlf->is_writing) {
+		crlf->encode(crlf, crlf->c, crlf->l);
 		fwrite(crlf->buf, 1, crlf->i, crlf->fp);
+	}
 	fclose(crlf->fp);
 	free(crlf->cnt);
 	free(crlf);
