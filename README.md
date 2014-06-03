@@ -1,4 +1,4 @@
-n-Length Format, is a lightweight format to store run-length
+CRLF, or Concise Run-Length Format, is a lightweight format to store run-length
 encoded strings, typically for small alphabets such as DNA. This repository
 contains the spec, a library and a tool to convert encodings.
 
