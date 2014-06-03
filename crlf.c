@@ -40,7 +40,7 @@ crlf_t *crlf_open(const char *fn)
 	FILE *fp;
 	char magic[4];
 	crlf_t *crlf;
-	uint32_t i, l;
+	uint32_t i, l = 0;
 
 	fp = (fn && strcmp(fn, "-"))? fopen(fn, "rb") : stdin;
 	if (fp == 0) return 0;

@@ -127,6 +127,7 @@ static inline int crlf_read_byte(crlf_t *crlf, uint32_t *l)
 	if (crlf->buf_len == 0) return -1;
 	if (crlf->i == crlf->buf_len) { // then fill the buffer
 		crlf->buf_len = fread(crlf->buf, 1, CRLF_BUF_LEN, crlf->fp);
+		crlf->i = 0;
 		if (crlf->buf_len == 0) return -1;
 	}
 	x = crlf->dectab[crlf->buf[crlf->i++]];
