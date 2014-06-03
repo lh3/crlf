@@ -9,16 +9,23 @@
 struct crlf_s;
 typedef int (*crlf_write_f)(struct crlf_s*, int c, uint64_t);
 
-typedef struct crlf_s {
-	uint8_t is_writing; // if the file is open for writing
-	uint8_t len; // maximum length of subtrings for the count table
-	uint8_t n_symbols; // number of symbols, including the sentinel
-	uint64_t *cnt; // the count table
-	uint32_t dectab[256]; // decoding table
-	crlf_write_f encode; // encoding function
-	FILE *fp; // file pointer
+typedef struct {
+	char tag[2];
+	uint64_t len;
+	uint8_t *data;
+} crlf_tag_t;
 
-	// Private members. DON'T touch!
+typedef struct crlf_s {
+	uint8_t is_writing;   // if the file is open for writing
+	uint8_t n_symbols;    // number of symbols, including the sentinel
+	uint32_t dectab[256]; // decoding table
+	crlf_write_f encode;  // encoding function; only used on writing
+	FILE *fp;             // file pointer
+
+	uint32_t n_tags;      // number of tags
+	crlf_tag_t *tags;     // only filled on reading!
+
+	// The following are related to bufferring
 	int c, i, buf_len;
 	uint64_t l;
 	uint8_t buf[CRLF_BUF_LEN];
@@ -28,7 +35,7 @@ typedef struct crlf_s {
 extern "C" {
 #endif
 
-	crlf_t *crlf_create(const char *fn, int n_symbols, uint8_t len, const uint64_t *cnt, const uint32_t dectab[256], crlf_write_f encode, int overwrite);
+	crlf_t *crlf_create(const char *fn, int n_symbols, const uint32_t dectab[256], crlf_write_f encode, uint32_t n_tags, const crlf_tag_t *tags);
 	crlf_t *crlf_open(const char *fn);
 	int crlf_close(crlf_t *crlf);
 

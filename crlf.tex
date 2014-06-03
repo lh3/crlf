@@ -1,0 +1,52 @@
+\documentclass[10pt]{article}
+\usepackage{color}
+\definecolor{gray}{rgb}{0.7,0.7,0.7}
+\usepackage{framed}
+\usepackage{enumitem}
+\usepackage{longtable}
+
+\addtolength{\textwidth}{3.4cm}
+\addtolength{\hoffset}{-1.7cm}
+\addtolength{\textheight}{4cm}
+\addtolength{\voffset}{-2cm}
+
+\makeindex
+
+\title{Concise Run-Length Format for Small Alphabets}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{table}[ht]
+\centering
+{\small
+\begin{tabular}{|l|l|l|p{8.2cm}|l|r|}
+  \cline{1-6}
+  \multicolumn{3}{|c|}{\bf Field}   & \multicolumn{1}{c|}{\bf Description} & \multicolumn{1}{c|}{\bf Type} & \multicolumn{1}{c|}{\bf Value} \\\cline{1-6}
+  \multicolumn{3}{|l|}{\sf magic}   & magic string    & {\tt char[4]}        & {\tt CRL\char92 1}\\\cline{1-6}
+  \multicolumn{3}{|l|}{\sf asize}   & Size of the alphabet, including the sentinel (if applicable) & {\tt uint8\_t} & \\\cline{1-6}
+  \multicolumn{3}{|l|}{\sf dectab}  & Decoding table: {\tt length\char60\char60 8\char124 symbol} & {\tt uint32\_t[256]} & \\\cline{1-6}
+  \multicolumn{3}{|l|}{\sf n\_tags} & number of tags  & {\tt uint32\_t}      & \\\cline{1-6}
+  \multicolumn{6}{|c|}{\textcolor{gray}{\it List of tags (n=n\_tags)}} \\\cline{2-6}
+  & \multicolumn{2}{l|}{\sf tag}    & Tag             & {\tt char[2]}        &\\\cline{2-6}
+  & \multicolumn{2}{l|}{\sf tlen}   & Tag data length & {\tt uint64\_t}      &\\\cline{2-6}
+  & \multicolumn{2}{l|}{\sf tdata}  & Tag data        & {\tt uint8\_t[tlen]} &\\\cline{1-6}
+  \multicolumn{3}{|l|}{\sf data}    & data            & {\tt uint8\_t[]}     &\\\cline{1-6}
+\end{tabular}}
+\end{table}
+
+\begin{table}[ht]
+\centering
+{\small
+\begin{tabular}{lll}
+\hline
+{\bf Tag} & {\bf Type/Length} & {\bf Description} \\
+\hline
+{\tt MC} & {\tt uint64\_t[asize]} & Marginal Count of each symbol \\
+\hline
+\end{tabular}}
+\end{table}
+
+\end{document}

@@ -4,52 +4,34 @@
 #include <assert.h>
 #include "crlf.h"
 
-static inline uint64_t crlf_cal_counts(int n_symbols, uint8_t len)
-{
-	int i;
-	uint64_t n_cnt;
-	if (len == 255) return 0;
-	for (i = 0, n_cnt = 1; i <= len; ++i)
-		n_cnt *= n_symbols;
-	n_cnt = (n_cnt - 1) / (n_symbols - 1);
-	return n_cnt;
-}
-
-crlf_t *crlf_create(const char *fn, int n_symbols, uint8_t len, const uint64_t *cnt, const uint32_t dectab[256], crlf_write_f encode, int overwrite)
+crlf_t *crlf_create(const char *fn, int n_symbols, const uint32_t dectab[256], crlf_write_f encode, uint32_t n_tags, const crlf_tag_t *tags)
 {
 	crlf_t *crlf;
 	FILE *fp;
 	int to_stdout;
-	int64_t n_cnt;
+	uint32_t i;
 
 	to_stdout = (fn == 0 || strcmp(fn, "-") == 0);
-	if (!overwrite && !to_stdout) {
-		fp = fopen(fn, "r");
-		if (fp != 0) {
-			fclose(fp);
-			return 0;
-		}
-	}
 	fp = to_stdout? stdout : fopen(fn, "wb");
 	if (fp == 0) return 0;
 
-	if (cnt == 0) len = 255;
 	crlf = (crlf_t*)calloc(1, sizeof(crlf_t));
 	crlf->n_symbols = n_symbols;
+	crlf->n_tags = n_tags;
 	crlf->encode = encode;
 	crlf->is_writing = 1;
-	crlf->len = len;
 	crlf->fp = fp;
-	n_cnt = crlf_cal_counts(n_symbols, len);
-	crlf->cnt = (uint64_t*)calloc(n_cnt, 8);
-	memcpy(crlf->cnt, cnt, n_cnt * 8);
 	memcpy(crlf->dectab, dectab, 256 * 4);
 
 	fwrite("CRL\1", 1, 4, fp);
 	fwrite(&n_symbols, 1, 1, fp);
-	fwrite(&len, 1, 1, fp);
-	fwrite(crlf->cnt, 8, n_cnt, fp);
 	fwrite(crlf->dectab, 4, 256, fp);
+	fwrite(&n_tags, 4, 1, fp);
+	for (i = 0; i < n_tags; ++i) {
+		fwrite(tags[i].tag, 1, 2, fp);
+		fwrite(&tags[i].len, 8, 1, fp);
+		fwrite(tags[i].data, 1, tags[i].len, fp);
+	}
 	return crlf;
 }
 
@@ -58,8 +40,7 @@ crlf_t *crlf_open(const char *fn)
 	FILE *fp;
 	char magic[4];
 	crlf_t *crlf;
-	uint64_t n_cnt;
-	uint32_t l;
+	uint32_t i, l;
 
 	fp = (fn && strcmp(fn, "-"))? fopen(fn, "rb") : stdin;
 	if (fp == 0) return 0;
@@ -72,11 +53,15 @@ crlf_t *crlf_open(const char *fn)
 	crlf = (crlf_t*)calloc(1, sizeof(crlf_t));
 	crlf->fp = fp;
 	fread(&crlf->n_symbols, 1, 1, fp);
-	fread(&crlf->len, 1, 1, fp);
-	n_cnt = crlf_cal_counts(crlf->n_symbols, crlf->len);
-	crlf->cnt = (uint64_t*)calloc(n_cnt, 8);
-	fread(crlf->cnt, 8, n_cnt, fp);
 	fread(crlf->dectab, 4, 256, fp);
+	fread(&crlf->n_tags, 4, 1, fp);
+	crlf->tags = (crlf_tag_t*)calloc(crlf->n_tags, sizeof(crlf_tag_t));
+	for (i = 0; i < crlf->n_tags; ++i) {
+		fread(crlf->tags[i].tag, 1, 2, fp);
+		fread(&crlf->tags[i].len, 8, 1, fp);
+		crlf->tags[i].data = (uint8_t*)malloc(crlf->tags[i].len);
+		fread(crlf->tags[i].data, 1, crlf->tags[i].len, fp);
+	}
 	crlf->buf_len = fread(crlf->buf, 1, CRLF_BUF_LEN, fp);
 	crlf->c = crlf_read_byte(crlf, &l);
 	crlf->l = l;
@@ -90,8 +75,13 @@ int crlf_close(crlf_t *crlf)
 		crlf->encode(crlf, crlf->c, crlf->l);
 		fwrite(crlf->buf, 1, crlf->i, crlf->fp);
 	}
+	if (crlf->tags) {
+		uint32_t i;
+		for (i = 0; i < crlf->n_tags; ++i)
+			free(crlf->tags[i].data);
+		free(crlf->tags);
+	}
 	fclose(crlf->fp);
-	free(crlf->cnt);
 	free(crlf);
 	return 0;
 }

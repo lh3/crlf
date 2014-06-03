@@ -82,8 +82,8 @@ int main(int argc, char *argv[])
 			if (in_fmt == IN_DNA4) n_symbols = 5;
 			else if (in_fmt == IN_DNA5) n_symbols = 6;
 			else abort();
-			out = crlf_create(out_fn, n_symbols, 255, 0, dectab, encode, 1);
-		} else out = crlf_create(out_fn, in->n_symbols, in->len, in->cnt, dectab, encode, 1);
+			out = crlf_create(out_fn, n_symbols, dectab, encode, 0, 0);
+		} else out = crlf_create(out_fn, in->n_symbols, dectab, encode, 0, 0);
 	} else if (in && in->n_symbols > 6) {
 		fprintf(stderr, "[E::%s] #symbols in the input is %d. The input cannot be DNA strings.\n", __func__, in->n_symbols);
 		return 1; // FIXME: memory leak

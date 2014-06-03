@@ -15,8 +15,11 @@ all:$(PROG)
 crlf:crlf.o recode.o
 		$(CC) $(CFLAGS) $(DFLAGS) $^ -o $@ $(LIBS)
 
+crlf.pdf:crlf.tex
+		pdflatex crlf.tex
+
 crlf.o:crlf.h
 recode.o:crlf.h
 
 clean:
-		rm -fr gmon.out *.o ext/*.o a.out $(PROG) *~ *.a *.dSYM session*
+		rm -fr gmon.out *.o ext/*.o a.out $(PROG) *~ *.a *.dSYM session* crlf.log crlf.aux crlf.idx crlf.pdf
